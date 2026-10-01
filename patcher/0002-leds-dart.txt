@@ -1,0 +1,4 @@
+arch/arm/boot/dts/marvell/armada-370-seagate-nas-xbay.dtsi
+drivers/leds/Makefile
+drivers/leds/Kconfig
+drivers/leds/leds-dart.c
