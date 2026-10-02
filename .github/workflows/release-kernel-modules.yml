@@ -34,7 +34,9 @@ jobs:
               sed -i "s/^Types: deb$/Types: deb deb-src/g" /etc/apt/sources.list.d/debian.sources
               apt-get update >/dev/null
               apt-cache madison linux \
-                | awk -F"|" "{ gsub(/ /, \"\", \\$2); if (\\$2 != \"\") print \\$2 }" \
+                | cut -d"|" -f2 \
+                | tr -d "[:space:]" \
+                | sed "/^$/d" \
                 | sort -Vu
             '
           })"
