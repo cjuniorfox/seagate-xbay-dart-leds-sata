@@ -36,20 +36,20 @@ jobs:
               apt-cache madison linux \
                 | cut -d"|" -f2 \
                 | sed -e "s/^[[:space:]]*//" -e "s/[[:space:]]*$//" -e "/^$/d" \
-                | sort -Vu
+                | sort -u
             '
           })"
 
           released_versions="$({
             gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[].tag_name' \
               | sed -n 's/^linux-//p' \
-              | sort -Vu || true
+              | sort -u || true
           })"
 
           pending_versions="$({
             comm -23 \
-              <(printf '%s\n' "$all_versions" | sed '/^$/d' | sort -Vu) \
-              <(printf '%s\n' "$released_versions" | sed '/^$/d' | sort -Vu)
+              <(printf '%s\n' "$all_versions" | sed '/^$/d' | LC_ALL=C sort -u) \
+              <(printf '%s\n' "$released_versions" | sed '/^$/d' | LC_ALL=C sort -u)
           })"
 
           pending_json="$(printf '%s\n' "$pending_versions" | jq -R -s -c 'split("\\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
