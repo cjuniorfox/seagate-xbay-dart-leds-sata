@@ -51,7 +51,7 @@ jobs:
               <(printf '%s\n' "$released_versions" | sed '/^$/d' | sort -Vu)
           })"
 
-          pending_json="$(printf '%s\n' "$pending_versions" | jq -R -s -c 'split("\\n") | map(select(length > 0))')"
+          pending_json="$(printf '%s\n' "$pending_versions" | jq -R -s -c 'split("\\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
 
           echo "Detected Debian kernel versions:"
           printf '%s\n' "$all_versions"
@@ -86,6 +86,8 @@ jobs:
           LINUX_VERSION: ${{ matrix.kernel_version }}
         run: |
           set -euo pipefail
+          test -n "${LINUX_VERSION}"
+          mkdir -p target
           bash ./patch-compile.sh
 
       - name: Verify package files exist
