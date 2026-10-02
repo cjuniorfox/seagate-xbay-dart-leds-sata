@@ -1,0 +1,112 @@
+name: Release Debian Kernel Modules
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-debian-kernel-modules
+  cancel-in-progress: false
+
+jobs:
+  detect-kernel-versions:
+    name: Detect Missing Kernel Releases
+    runs-on: ubuntu-latest
+    outputs:
+      pending_versions: ${{ steps.collect.outputs.pending_versions }}
+    steps:
+      - name: Collect Debian kernel versions and compare with releases
+        id: collect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          all_versions="$({
+            docker run --rm debian:13 sh -ec '
+              sed -i "s/^Types: deb$/Types: deb deb-src/g" /etc/apt/sources.list.d/debian.sources
+              apt-get update >/dev/null
+              apt-cache madison linux \
+                | awk -F"|" "{ gsub(/ /, \"\", \\$2); if (\\$2 != \"\") print \\$2 }" \
+                | sort -Vu
+            '
+          })"
+
+          released_versions="$({
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[].tag_name' \
+              | sed -n 's/^linux-//p' \
+              | sort -Vu || true
+          })"
+
+          pending_versions="$({
+            comm -23 \
+              <(printf '%s\n' "$all_versions" | sed '/^$/d' | sort -Vu) \
+              <(printf '%s\n' "$released_versions" | sed '/^$/d' | sort -Vu)
+          })"
+
+          pending_json="$(printf '%s\n' "$pending_versions" | jq -R -s -c 'split("\\n") | map(select(length > 0))')"
+
+          echo "Detected Debian kernel versions:"
+          printf '%s\n' "$all_versions"
+          echo "Already released kernel versions:"
+          printf '%s\n' "$released_versions"
+          echo "Pending kernel versions:"
+          printf '%s\n' "$pending_versions"
+
+          echo "pending_versions=${pending_json}" >> "$GITHUB_OUTPUT"
+
+  build-and-release:
+    name: Build and Release (${{ matrix.kernel_version }})
+    needs: detect-kernel-versions
+    if: ${{ needs.detect-kernel-versions.outputs.pending_versions != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel_version: ${{ fromJson(needs.detect-kernel-versions.outputs.pending_versions) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman
+
+      - name: Build patched modules and Debian packages
+        env:
+          LINUX_VERSION: ${{ matrix.kernel_version }}
+        run: |
+          set -euo pipefail
+          bash ./patch-compile.sh
+
+      - name: Verify package files exist
+        env:
+          LINUX_VERSION: ${{ matrix.kernel_version }}
+        run: |
+          set -euo pipefail
+          test -f "target/linux-modules-sata-mv-seagate-nas-xbay_${LINUX_VERSION}_armhf.deb"
+          test -f "target/linux-modules-leds-dart-seagate-nas-xbay_${LINUX_VERSION}_armhf.deb"
+          ls -lh target/*.deb
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINUX_VERSION: ${{ matrix.kernel_version }}
+        run: |
+          set -euo pipefail
+          tag="linux-${LINUX_VERSION}"
+
+          gh release create "$tag" \
+            --title "Linux ${LINUX_VERSION}" \
+            --notes "Automated release for Debian linux source version ${LINUX_VERSION}." \
+            "target/linux-modules-sata-mv-seagate-nas-xbay_${LINUX_VERSION}_armhf.deb" \
+            "target/linux-modules-leds-dart-seagate-nas-xbay_${LINUX_VERSION}_armhf.deb"
