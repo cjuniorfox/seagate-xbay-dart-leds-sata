@@ -1,70 +1,97 @@
-# Patch for drivers on Seagate NAS 4-bay
+# Seagate xBay SATA LED Fix Packages
 
-## Create the patch files
+This repository builds Debian packages that restore SATA activity/presence LED behavior for Seagate xBay NAS devices based on Armada 370.
 
-### 1. Create patch for sata-mv
+On vanilla kernel, the white SATA LEDs are not usable as expected on these boards. This project provides:
 
-```bash
-truncate -s 0 ./patcher/0001-ata-sata_mv-enable-SoC-SATA-LED-presence-indication.patch
-podman run \
-    --rm \
-    -v ./patcher/create-patch.sh:/create-patch.sh \
-    -v ./patcher/0001-sata_mv.txt:/patch-files.txt \
-    -v ./patcher/0001-ata-sata_mv-enable-SoC-SATA-LED-presence-indication.patch:/patchfile.patch \
-    -v ./linux/:/linux/ \
-    --entrypoint=sh debian:13 \
-    /create-patch.sh
-```
+1. A patched `sata_mv` module enabling SoC SATA LED presence control.
+2. A `leds-dart` LED driver module that switches each SATA LED pin between GPIO mode and SATA-controller mode.
+3. A DTB with the `seagate,dart-leds` node and pinctrl states required by the driver.
 
-### 2. Create patch for dart-leds
+## What Each Package Contains
 
-```bash
-truncate -s 0 ./patcher/0002-leds-dart-add-Seagate-Dart-NAS-LED-driver.patch
-podman run \
-    --rm \
-    -v ./patcher/create-patch.sh:/create-patch.sh \
-    -v ./patcher/0002-leds-dart.txt:/patch-files.txt \
-    -v ./patcher/0002-leds-dart-add-Seagate-Dart-NAS-LED-driver.patch:/patchfile.patch \
-    -v ./linux/:/linux/ \
-    --entrypoint=sh debian:13 \
-    /create-patch.sh
-```
+1. `linux-modules-sata-mv-seagate-nas-xbay_<kernel-version>_armhf.deb`
+: Installs `sata_mv.ko.xz` under `/lib/modules/<kernel-version>/kernel/drivers/ata/`.
 
-### 3. Merge patched files
+2. `linux-modules-leds-dart-seagate-nas-xbay_<kernel-version>_armhf.deb`
+: Installs `leds-dart.ko.xz` under `/lib/modules/<kernel-version>/kernel/drivers/leds/` and installs DTB at `/boot/dtb-<kernel-version>/marvell/armada-370-seagate-nas-4bay.dtb`.
 
-```bash
-cat ./patcher/0001-ata-sata_mv-enable-SoC-SATA-LED-presence-indication.patch \
-    ./patcher/0002-leds-dart-add-Seagate-Dart-NAS-LED-driver.patch \
-    > ./0001-full-patch.patch
-```
+Both packages run `depmod` and `update-initramfs` in `postinst/postrm`.
 
-### 4. Compile kernel binaries
+## Important Requirement
+
+Install and use package versions that match the running kernel release.
+
+Example:
+
+1. Running kernel: `6.12.111-1+deb13-armmp`
+2. Install packages built for `6.12.111-1`.
+
+If versions do not match, modules will not load.
+
+Check the running kernel:
 
 ```bash
-podman run \
-    --rm \
-    -v ./compiler/compile.sh:/compile.sh \
-    -v ./0001-full-patch.patch:/patchfile.patch \
-    -v ./target/:/target/ \
-    --entrypoint=sh debian:13 \
-    /compile.sh
+uname -r
 ```
 
-### 5. Build a .deb from target binaries
+## Install Order
 
-After compiling, package the generated modules and DTB into Debian packages:
+Even without explicit package dependency, `leds-dart` is intended to work with the patched `sata_mv` behavior.
+
+Install in this order:
+
+1. `linux-modules-sata-mv-seagate-nas-xbay_..._armhf.deb`
+2. `linux-modules-leds-dart-seagate-nas-xbay_..._armhf.deb`
+
+Example:
+
+```bash
+sudo dpkg -i linux-modules-sata-mv-seagate-nas-xbay_<version>_armhf.deb
+sudo dpkg -i linux-modules-leds-dart-seagate-nas-xbay_<version>_armhf.deb
+sudo reboot
+```
+
+## Compatible Devices
+
+Target platform is Seagate DART/xBay family based on Armada 370, with SATA LED pins muxed as in the DART device tree.
+
+Based on [linux/arch/arm/boot/dts/marvell/armada-370-seagate-nas-xbay.dtsi](linux/arch/arm/boot/dts/marvell/armada-370-seagate-nas-xbay.dtsi):
+
+1. Seagate NAS 4-bay using this pin mapping.
+2. Seagate NAS 2-bay/4-bay variants that include the same `seagate,dart-leds` DT node and equivalent pinctrl states.
+
+If your board does not use the same DTS wiring (MPP and GPIO mapping), adapt the DTS before use.
+
+## Driver Behavior Summary
+
+From [linux/drivers/leds/leds-dart.c](linux/drivers/leds/leds-dart.c):
+
+1. Registers LED class devices for SATA white LEDs.
+2. Exposes a per-LED `sata` sysfs attribute.
+3. Switches pinctrl state between:
+: `default` (SATA mode)
+: `gpio` (manual LED on/off)
+4. Uses GPIO fallback when brightness is set to off.
+
+The SATA controller support side is patched in `sata_mv` (SoC LED controller enable and presence indication bits).
+
+## Upstream Status Note
+
+The `sata_mv` change is being submitted upstream, so this repository currently keeps both pieces available until mainline includes the required behavior.
+
+## Build Workflow (Repository)
+
+1. Create/merge patches and compile binaries:
+
+```bash
+bash ./patch-compile.sh
+```
+
+2. Build `.deb` packages from `target/binaries`:
 
 ```bash
 bash ./compiler/create-deb.sh
 ```
 
-This script uses fixed paths inside the Debian container:
-
-- Source root: `/target/binaries`
-- Output directory: `/target`
-- Package 1: `linux-modules-sata-mv-seagate-nas-xbay` (contains `sata_mv.ko.xz`)
-- Package 2: `linux-modules-leds-dart-seagate-nas-xbay` (contains `leds-dart.ko.xz` and DTB)
-
-Each package has independent `postinst` and `postrm` hooks that run `depmod` and `update-initramfs` for the kernel version.
-
-The package version is the same as the kernel version from `KERNEL_VERSION` (or `LINUX_VERSION`), and both output packages are created in `./target/`.
+Output `.deb` files are written to `target/`.

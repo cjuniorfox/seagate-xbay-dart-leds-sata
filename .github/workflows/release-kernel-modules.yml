@@ -11,6 +11,9 @@ on:
 permissions:
   contents: write
 
+env:
+  DEBIAN_RELEASE_NAME: "Debian 13 (trixie)"
+
 concurrency:
   group: release-debian-kernel-modules
   cancel-in-progress: false
@@ -18,7 +21,7 @@ concurrency:
 jobs:
   detect-kernel-versions:
     name: Detect Missing Kernel Releases
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       pending_versions: ${{ steps.collect.outputs.pending_versions }}
     steps:
@@ -67,7 +70,7 @@ jobs:
     name: Build and Release (${{ matrix.kernel_version }})
     needs: detect-kernel-versions
     if: ${{ needs.detect-kernel-versions.outputs.pending_versions != '[]' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -111,12 +114,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LINUX_VERSION: ${{ matrix.kernel_version }}
+          DEBIAN_RELEASE_NAME: ${{ env.DEBIAN_RELEASE_NAME }}
         run: |
           set -euo pipefail
           tag="linux-${LINUX_VERSION}"
 
           gh release create "$tag" \
-            --title "Linux ${LINUX_VERSION}" \
-            --notes "Automated release for Debian linux source version ${LINUX_VERSION}." \
+            --title "${DEBIAN_RELEASE_NAME} Linux ${LINUX_VERSION}" \
+            --notes "Automated release for ${DEBIAN_RELEASE_NAME} linux source version ${LINUX_VERSION}." \
             "target/linux-modules-sata-mv-seagate-nas-xbay_${LINUX_VERSION}_armhf.deb" \
             "target/linux-modules-leds-dart-seagate-nas-xbay_${LINUX_VERSION}_armhf.deb"
