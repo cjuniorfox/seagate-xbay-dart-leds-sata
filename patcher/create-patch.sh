@@ -1,6 +1,8 @@
 #!/bin/bash
 
-LINUX_VERSION="6.12.107-1"
+LINUX_VERSION="${LINUX_VERSION:-6.12.107-1}"
+TXT_PATCH_FILES="${TXT_PATCH_FILES:-/patch-files.txt}"
+TARGET_PATCH_FILE="${TARGET_PATCH_FILE:-/patchfile.patch}"
 
 echo "Installing compiling tools"
 
@@ -20,20 +22,20 @@ arm-linux-gnueabihf-gcc --version
 
 apt-cache madison linux
 
-useradd source
-mkdir -p /target/linux && chown source /target/linux
+useradd source -d /source
+mkdir -p /source && chown source /source
 
 su - source << EOF
-cd /target/linux
-apt source linux=6.12.107-1
+cd /source
+apt source linux=$LINUX_VERSION
 EOF
 
-truncate -s 0 /tmp/0001-patch.patch
+truncate -s 0 "$TARGET_PATCH_FILE"
 
 while read file; do
 	file_b="/linux/$file"
 	label_b="b/$file"
-	file_a="/target/linux/linux-${LINUX_VERSION%-*}/${file}"
+	file_a="/source/linux-${LINUX_VERSION%-*}/${file}"
 	label_a="a/$file"
 	if [ ! -f "$file_a" ]; then
 		file_a=/dev/null
@@ -43,6 +45,6 @@ while read file; do
 		--label "$label_a" \
 		--label "$label_b" \
 		"$file_a" "$file_b" \
-		>> /patchfile.patch
-done < patch-files.txt 
+		| tee -a "$TARGET_PATCH_FILE"
+done < "$TXT_PATCH_FILES" 
 
