@@ -129,10 +129,10 @@ build_leds_package() {
 
     mkdir -p "${pkg_root}/DEBIAN"
     mkdir -p "${pkg_root}/lib/modules/${KERNEL_RELEASE}/kernel/drivers/leds"
-    mkdir -p "${pkg_root}/boot/dtb-${KERNEL_RELEASE}/marvell"
+    mkdir -p "${pkg_root}/usr/lib/linux-image-${KERNEL_RELEASE}"
 
     install -m 0644 "${LEDS_MODULE}" "${pkg_root}/lib/modules/${KERNEL_RELEASE}/kernel/drivers/leds/leds-dart.ko.xz"
-    install -m 0644 "${DTB_FILE}" "${pkg_root}/boot/dtb-${KERNEL_RELEASE}/marvell/armada-370-seagate-nas-4bay.dtb"
+    install -m 0644 "${DTB_FILE}" "${pkg_root}/usr/lib/linux-image-${KERNEL_RELEASE}/armada-370-seagate-nas-4bay.dtb"
 
     cat > "${pkg_root}/DEBIAN/control" <<EOF
 Package: ${LEDS_PKG_NAME}
