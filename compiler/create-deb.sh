@@ -112,7 +112,7 @@ Version: ${PKG_VERSION}
 Section: kernel
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: Seagate NAS XBAY Builder <root@localhost>
+Maintainer: Carlos Anselmo Mendes Junior <cjuniofox@gmail.com>
 Depends: kmod, initramfs-tools
 Description: Seagate NAS XBAY sata_mv kernel module
  Installs patched sata_mv kernel module for Seagate NAS.
@@ -140,8 +140,9 @@ Version: ${PKG_VERSION}
 Section: kernel
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: Seagate NAS XBAY Builder <root@localhost>
+Maintainer: Carlos Anselmo Mendes Junior <cjuniorfox@gmail.com>
 Depends: kmod, initramfs-tools
+Replaces: linux-image-${KERNEL_RELEASE}
 Description: Seagate NAS XBAY leds-dart module and DTB
  Installs leds-dart kernel module and Seagate NAS 4-bay DTB.
 EOF
