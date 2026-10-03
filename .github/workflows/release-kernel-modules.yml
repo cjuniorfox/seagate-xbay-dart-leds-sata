@@ -25,23 +25,18 @@ jobs:
     outputs:
       pending_versions: ${{ steps.collect.outputs.pending_versions }}
     steps:
-      - name: Collect Debian kernel versions and compare with releases
+      - name: Collect fixed Debian kernel versions and compare with releases
         id: collect
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          all_versions="$({
-            docker run --rm debian:13 sh -ec '
-              sed -i "s/^Types: deb$/Types: deb deb-src/g" /etc/apt/sources.list.d/debian.sources
-              apt-get update >/dev/null
-              apt-cache madison linux \
-                | cut -d"|" -f2 \
-                | sed -e "s/^[[:space:]]*//" -e "s/[[:space:]]*$//" -e "/^$/d" \
-                | sort -u
-            '
-          })"
+          all_versions='[
+            "6.12.94-1",
+            "6.12.107-1",
+            "6.12.111-1"
+          ]'
 
           released_versions="$({
             gh api --paginate "repos/${GITHUB_REPOSITORY}/releases" --jq '.[].tag_name' \
@@ -51,14 +46,14 @@ jobs:
 
           pending_versions="$({
             comm -23 \
-              <(printf '%s\n' "$all_versions" | sed '/^$/d' | LC_ALL=C sort -u) \
+              <(printf '%s\n' "$all_versions" | jq -r '.[]' | sed '/^$/d' | LC_ALL=C sort -u) \
               <(printf '%s\n' "$released_versions" | sed '/^$/d' | LC_ALL=C sort -u)
           })"
 
           pending_json="$(printf '%s\n' "$pending_versions" | jq -R -s -c 'split("\n") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))')"
 
           echo "Detected Debian kernel versions:"
-          printf '%s\n' "$all_versions"
+          printf '%s\n' "$all_versions" | jq -r '.[]'
           echo "Already released kernel versions:"
           printf '%s\n' "$released_versions"
           echo "Pending kernel versions:"
