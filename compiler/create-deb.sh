@@ -7,6 +7,8 @@ BINARY_ROOT="/target/binaries"
 
 ARCH="armhf"
 KERNEL_VERSION="${KERNEL_VERSION:-${LINUX_VERSION:-}}"
+LOCAL_VERSION="${LOCALVERSION:-+deb13-armmp}"
+LINUX_LOCAL_VERSION="${KERNEL_VERSION%-*}${LOCAL_VERSION}"
 
 die() {
     echo "ERROR: $*" >&2
@@ -100,9 +102,9 @@ build_sata_package() {
     deb_path="${TARGET_DIR}/${SATA_PKG_NAME}_${PKG_VERSION}_${ARCH}.deb"
 
     mkdir -p "${pkg_root}/DEBIAN"
-    mkdir -p "${pkg_root}/lib/modules/${KERNEL_VERSION}/kernel/drivers/ata"
+    mkdir -p "${pkg_root}/lib/modules/${LINUX_LOCAL_VERSION}/kernel/drivers/ata"
 
-    install -m 0644 "${SATA_MODULE}" "${pkg_root}/lib/modules/${KERNEL_VERSION}/kernel/drivers/ata/sata_mv.ko.xz"
+    install -m 0644 "${SATA_MODULE}" "${pkg_root}/lib/modules/${LINUX_LOCAL_VERSION}/kernel/drivers/ata/sata_mv.ko.xz"
 
     cat > "${pkg_root}/DEBIAN/control" <<EOF
 Package: ${SATA_PKG_NAME}
@@ -126,11 +128,11 @@ build_leds_package() {
     deb_path="${TARGET_DIR}/${LEDS_PKG_NAME}_${PKG_VERSION}_${ARCH}.deb"
 
     mkdir -p "${pkg_root}/DEBIAN"
-    mkdir -p "${pkg_root}/lib/modules/${KERNEL_VERSION}/kernel/drivers/leds"
-    mkdir -p "${pkg_root}/boot/dtb-${KERNEL_VERSION}/marvell"
+    mkdir -p "${pkg_root}/lib/modules/${LINUX_LOCAL_VERSION}/kernel/drivers/leds"
+    mkdir -p "${pkg_root}/boot/dtb-${LINUX_LOCAL_VERSION}/marvell"
 
-    install -m 0644 "${LEDS_MODULE}" "${pkg_root}/lib/modules/${KERNEL_VERSION}/kernel/drivers/leds/leds-dart.ko.xz"
-    install -m 0644 "${DTB_FILE}" "${pkg_root}/boot/dtb-${KERNEL_VERSION}/marvell/armada-370-seagate-nas-4bay.dtb"
+    install -m 0644 "${LEDS_MODULE}" "${pkg_root}/lib/modules/${LINUX_LOCAL_VERSION}/kernel/drivers/leds/leds-dart.ko.xz"
+    install -m 0644 "${DTB_FILE}" "${pkg_root}/boot/dtb-${LINUX_LOCAL_VERSION}/marvell/armada-370-seagate-nas-4bay.dtb"
 
     cat > "${pkg_root}/DEBIAN/control" <<EOF
 Package: ${LEDS_PKG_NAME}
