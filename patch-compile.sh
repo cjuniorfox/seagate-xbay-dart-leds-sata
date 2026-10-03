@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LINUX_VERSION="${LINUX_VERSION:-6.12.107-1}"
+LINUX_VERSION="${LINUX_VERSION:-6.12.111-1}"
 
 podman run \
     --rm -i \
