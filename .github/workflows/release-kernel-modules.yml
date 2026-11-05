@@ -33,9 +33,9 @@ jobs:
           set -euo pipefail
 
           all_versions='[
-            "6.12.94-1",
             "6.12.107-1",
-            "6.12.111-1"
+            "6.12.111-1",
+            "6.12.115-1"
           ]'
 
           released_versions="$({
